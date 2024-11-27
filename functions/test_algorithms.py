@@ -1,16 +1,15 @@
-from slim_gsgp.main_slim import slim
-from slim_gsgp.main_gsgp import gsgp 
-from slim_gsgp.main_gp import gp
-from slim_gsgp.utils.utils import train_test_split
-from slim_gsgp.evaluators.fitness_functions import rmse
+from slim_gsgp_lib.main_slim import slim
+from slim_gsgp_lib.main_gsgp import gsgp 
+from slim_gsgp_lib.main_gp import gp
+from slim_gsgp_lib.utils.utils import train_test_split
+from slim_gsgp_lib.evaluators.fitness_functions import rmse
 import numpy as np
 import torch
 from sklearn.preprocessing import MinMaxScaler
 import time
 import os
 from tqdm import tqdm
-
-from test_funcs import *
+from functions.test_funcs import mape, nrmse, r_squared, mae, standardized_rmse
 
 
 # ----------------------------------- SLIM ----------------------------------- #
@@ -28,7 +27,6 @@ def test_slim(X, y, args_dict=None,
             algorithm="SLIM+SIG1",
             verbose=0,
             p_train=0.7,
-            p_val=0.5,
             tournament_size=2,
 ):    
     """
@@ -67,8 +65,6 @@ def test_slim(X, y, args_dict=None,
         The verbosity level.
     p_train: float
         The percentage of the training set.
-    p_val: float
-        The percentage of the validation set (from the test set).
     tournament_size: int
         The tournament size.
 
@@ -100,15 +96,12 @@ def test_slim(X, y, args_dict=None,
 
     for it in tqdm(range(iterations)):
         X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=it)
-        X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, p_test=1-p_val, seed=it)
 
         if scale:
             scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
             X_train = torch.tensor(scaler_x.fit_transform(X_train), dtype=torch.float32)
-            X_val = torch.tensor(scaler_x.transform(X_val), dtype=torch.float32)
             X_test = torch.tensor(scaler_x.transform(X_test), dtype=torch.float32)
             y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
-            y_val = torch.tensor(scaler_y.transform(y_val.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
             y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
 
         algorithm_name = 'MUL-' + algorithm.split('*')[1] if '*' in algorithm else 'ADD-' + algorithm.split('+')[1]
@@ -117,7 +110,7 @@ def test_slim(X, y, args_dict=None,
             os.makedirs(os.path.dirname(path))
             
         start = time.time()
-        final_tree = slim(X_train=X_train, y_train=y_train, X_test=X_val, y_test=y_val,
+        final_tree = slim(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
                             dataset_name=dataset_name, slim_version=algorithm, pop_size=pop_size, n_iter=n_iter, seed=it, ms_lower=ms_lower, ms_upper=ms_upper,
                             reconstruct=True, n_jobs=1, tournament_size=tournament_size, initializer=initializer, struct_mutation=struct_mutation,
                             log_path=path, verbose=verbose, log_level=3, n_elites=n_elites, **args_dict)
@@ -161,7 +154,6 @@ def test_gsgp(X, y, args_dict=None,
               scale=True,
               verbose=0,
               p_train=0.7,
-              p_val=0.5,
               threshold=100000,
 ):    
     """
@@ -183,8 +175,6 @@ def test_gsgp(X, y, args_dict=None,
         The verbosity level.
     p_train: float
         The percentage of the training set.
-    p_val: float
-        The percentage of the validation set (from the test set).
     threshold: int
         The maximum number of nodes allowed in the tree.
 
@@ -217,15 +207,12 @@ def test_gsgp(X, y, args_dict=None,
 
     for it in tqdm(range(iterations)):
         X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=it)
-        X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, p_test=1-p_val, seed=it)
 
         if scale:
             scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
             X_train = torch.tensor(scaler_x.fit_transform(X_train), dtype=torch.float32)
-            X_val = torch.tensor(scaler_x.transform(X_val), dtype=torch.float32)
             X_test = torch.tensor(scaler_x.transform(X_test), dtype=torch.float32)
             y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
-            y_val = torch.tensor(scaler_y.transform(y_val.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
             y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
 
         path = f"logs/{dataset_name}/GSGP_{it}.log"
@@ -233,7 +220,7 @@ def test_gsgp(X, y, args_dict=None,
             os.makedirs(os.path.dirname(path))
             
         start = time.time()
-        final_tree = gsgp(X_train=X_train, y_train=y_train, X_test=X_val, y_test=y_val,
+        final_tree = gsgp(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
                           dataset_name=dataset_name, seed=it,
                           log_path=path, verbose=verbose, **args_dict, reconstruct=True)
         end = time.time()

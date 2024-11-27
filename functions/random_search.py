@@ -1,17 +1,19 @@
-from slim_gsgp.main_slim import slim
-from slim_gsgp.main_gsgp import gsgp 
-from slim_gsgp.main_gp import gp
-from slim_gsgp.utils.utils import train_test_split
-from slim_gsgp.evaluators.fitness_functions import rmse
+from slim_gsgp_lib.main_slim import slim
+from slim_gsgp_lib.main_gsgp import gsgp 
+from slim_gsgp_lib.main_gp import gp
+from slim_gsgp_lib.utils.utils import train_test_split
+from slim_gsgp_lib.evaluators.fitness_functions import rmse
 import numpy as np
 import torch
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
-from test_funcs import *
+import os 
+import pickle
+
 
 # -------------------------------- SLIM --------------------------------
 
-def random_search_slim(X,y,scale=False, p_train=0.7, p_val=0.5,
+def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
                        iterations=50, pop_size=100, n_iter=100,
                        struct_mutation=False):
     
@@ -24,12 +26,12 @@ def random_search_slim(X,y,scale=False, p_train=0.7, p_val=0.5,
         The input data.
     y: torch.tensor 
         The target data.
+    dataset: str
+        The name of the dataset.
     scale: bool
         Whether to scale the data or not.
     p_train: float
         The percentage of the training set.
-    p_val: float
-        The percentage of the validation set (from the test set).
     iterations: int
         The number of iterations to perform.
     pop_size: int
@@ -56,27 +58,21 @@ def random_search_slim(X,y,scale=False, p_train=0.7, p_val=0.5,
     'prob_replace': [0.01, 0.015, 0.02, 0.025] if struct_mutation==True else [0,0],
     }
 
-    # Perform a split of the dataset
-    X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train)
-    X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, p_test=1-p_val)
-
-    if scale:
-        scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
-        X_train = torch.tensor(scaler_x.fit_transform(X_train), dtype=torch.float32)
-        X_val = torch.tensor(scaler_x.transform(X_val), dtype=torch.float32)
-        X_test = torch.tensor(scaler_x.transform(X_test), dtype=torch.float32)
-        y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
-        y_val = torch.tensor(scaler_y.transform(y_val.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
-        y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
-        
-    print("Training set size: ", X_train.shape[0])
-    print("Validation set size: ", X_val.shape[0])
-    print("Test set size: ", X_test.shape[0])
-
     results_slim = {}
     for algorithm in ["SLIM+SIG2", "SLIM*SIG2", "SLIM+ABS", "SLIM*ABS", "SLIM+SIG1", "SLIM*SIG1"]:
         results = {}
         for i in tqdm(range(iterations)):
+            # Perform a split of the dataset
+            X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=i)
+
+            if scale:
+                scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
+                X_train = torch.tensor(scaler_x.fit_transform(X_train), dtype=torch.float32)
+                X_test = torch.tensor(scaler_x.transform(X_test), dtype=torch.float32)
+                y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
+                y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
+
+            # Randomly select parameters
             p_inflate = np.random.choice(params['p_inflate'])
             max_depth = int(np.random.choice(params['max_depth']))
             init_depth = int(np.random.choice(params['init_depth']))
@@ -91,7 +87,7 @@ def random_search_slim(X,y,scale=False, p_train=0.7, p_val=0.5,
                 max_depth = init_depth + 6
 
             slim_ = slim(X_train=X_train, y_train=y_train, dataset_name='dataset_1',
-                            X_test=X_val, y_test=y_val, slim_version=algorithm, pop_size=pop_size, n_iter=n_iter,
+                            X_test=X_test, y_test=y_test, slim_version=algorithm, pop_size=pop_size, n_iter=n_iter,
                             ms_lower=0, ms_upper=1, p_inflate=p_inflate, max_depth=max_depth, init_depth=init_depth, 
                             seed=20, prob_const=prob_const, n_elites=1, log_level=0, verbose=0,
                             struct_mutation=struct_mutation, prob_replace=prob_replace, p_prune=p_prune, 
@@ -115,13 +111,22 @@ def random_search_slim(X,y,scale=False, p_train=0.7, p_val=0.5,
         # Get the best hyperparameters
         best_hyperparameters = list(results.values())[0]
         results_slim[algorithm] = best_hyperparameters
+
+    # Pickle the results
+    output_dir = os.path.join(os.getcwd(), "best_params")
+    output_file = f"best_slim_{dataset}_{pop_size}_{n_iter}_{scale}.pkl"
+    output_file = os.path.join(output_dir, output_file)
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open(output_file, "wb") as f:
+        pickle.dump(results_slim, f)
     return results_slim
 
 
 
 # -------------------------------- GSGP --------------------------------
 
-def random_search_gsgp(X, y, scale=False, p_train=0.7, p_val=0.5, iterations=50, 
+def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50, 
                        pop_size=100, n_iter=100, verbose=0, threshold=100000):
     """
     Perform a random search for the best hyperparameters for the GSGP algorithm.
@@ -132,12 +137,12 @@ def random_search_gsgp(X, y, scale=False, p_train=0.7, p_val=0.5, iterations=50,
         The input data.
     y: torch.tensor     
         The target data.
+    dataset: str
+        The name of the dataset.
     scale: bool
         Whether to scale the data or not.
     p_train: float
         The percentage of the training set.
-    p_val: float
-        The percentage of the validation set (from the test set).
     iterations: int
         The number of iterations to perform.
     pop_size: int
@@ -157,59 +162,58 @@ def random_search_gsgp(X, y, scale=False, p_train=0.7, p_val=0.5, iterations=50,
     
     # Define parameter space
     params = {
-        'p_xo': [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-        'init_depth': [5, 6, 7, 8, 9, 10, 11, 12],
+        'p_xo': [0, 0, 0, 0.05, 0.1, 0.15],
+        'init_depth': [3, 4, 5, 6, 7, 8],
         'prob_const': [0.05, 0.1, 0.15, 0.2],
-        'tournament_size': [2, 3, 4, 5],
+        'tournament_size': [2, 3, 4],
+        'ms_lower': [0, 0, 0, 0.05, 0.1, 0.15],
+        'ms_upper': [1, 1, 1, 0.8, 0.6, 0.4, 0.2],
     }
-
-    # Dataset split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train)
-    X_val, X_test, y_val, y_test = train_test_split(X_test, y_test, p_test=1-p_val)
-
-    if scale:
-        scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
-        X_train = torch.tensor(scaler_x.fit_transform(X_train), dtype=torch.float32)
-        X_val = torch.tensor(scaler_x.transform(X_val), dtype=torch.float32)
-        X_test = torch.tensor(scaler_x.transform(X_test), dtype=torch.float32)
-        y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
-        y_val = torch.tensor(scaler_y.transform(y_val.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
-        y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
-
-    print("Training set size:", X_train.shape[0])
-    print("Validation set size:", X_val.shape[0])
-    print("Test set size:", X_test.shape[0])
 
     # Random search loop
     results = {}
     for i in tqdm(range(iterations)):
+        # Dataset split
+        X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=i)
+
+        if scale:
+            scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
+            X_train = torch.tensor(scaler_x.fit_transform(X_train), dtype=torch.float32)
+            X_test = torch.tensor(scaler_x.transform(X_test), dtype=torch.float32)
+            y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
+            y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
+
         # Randomly select parameters
         p_xo = np.random.choice(params['p_xo'])
         init_depth = int(np.random.choice(params['init_depth']))
         prob_const = np.random.choice(params['prob_const'])
         tournament_size = int(np.random.choice(params['tournament_size']))
+        ms_lower = np.random.choice(params['ms_lower'])
+        ms_upper = np.random.choice(params['ms_upper'])
 
         # Run GSGP
         try:
             gsgp_model = gsgp(
                 X_train=X_train, y_train=y_train,
-                X_test=X_val, y_test=y_val,
+                X_test=X_test, y_test=y_test,
                 pop_size=pop_size, n_iter=n_iter,
                 p_xo=p_xo, init_depth=init_depth,
                 prob_const=prob_const, tournament_size=tournament_size,
                 dataset_name='random_search_gsgp',
-                verbose=verbose, log_level=0, minimization=True, reconstruct=True,
+                verbose=verbose, log_level=0, minimization=True, reconstruct=True, 
+                ms_lower=ms_lower, ms_upper=ms_upper
             )
 
             if gsgp_model.nodes > threshold:
                 # Skip if the tree is too large
-                print(f"Tree too large: {gsgp_model.nodes}")
-                continue
+                print(f"Parameters: {p_xo}, {init_depth}, {prob_const}, {tournament_size}")
+            
+            else:
+                print('Individual normal size')
 
             # Predict and evaluate
             predictions = gsgp_model.predict(X_test)
             rmse_score = float(rmse(y_true=y_test, y_pred=predictions))
-            print(rmse_score)
 
             # Store results
             results[rmse_score] = {
@@ -222,9 +226,20 @@ def random_search_gsgp(X, y, scale=False, p_train=0.7, p_val=0.5, iterations=50,
             }
         except Exception as e:
             print(f"Iteration {i} failed with error: {e}")
+            
             continue
-
+            
     # Sort results by RMSE and return the best configuration
     results = {k: v for k, v in sorted(results.items(), key=lambda item: item[0])}
     best_hyperparameters = list(results.values())[0] if results else {}
+
+    # Pickle the results
+    output_dir = os.path.join(os.getcwd(), "best_params")
+    output_file = f"best_gsgp_{dataset}_{pop_size}_{n_iter}_{scale}.pkl"
+    output_file = os.path.join(output_dir, output_file)
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open(output_file, "wb") as f:
+        pickle.dump(best_hyperparameters, f)
+
     return best_hyperparameters
