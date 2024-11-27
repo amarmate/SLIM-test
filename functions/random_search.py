@@ -51,8 +51,10 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
     'max_depth': [12,13,14,15,16,17,18,19,20,21,22,23,24],
     'init_depth': [5,6,7,8,9,10,11,12],
     'prob_const': [0.05, 0.1, 0.15, 0.2],
-    'p_prune': [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
     'tournament_size': [2, 3, 4],
+    'ms_lower': [0, 0, 0, 0.05, 0.1],
+    'ms_upper': [1, 1, 1, 1, 0.8, 0.6, 0.4, 0.2, 0.1],
+    'p_prune': [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] if struct_mutation==True else [0,0],
     'p_xo': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] if struct_mutation==True else [0,0],
     'p_struct_xo': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7] if struct_mutation==True else [0,0],
     'prob_replace': [0.01, 0.015, 0.02, 0.025] if struct_mutation==True else [0,0],
@@ -82,16 +84,18 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
             p_prune = np.random.choice(params['p_prune'])
             p_xo = np.random.choice(params['p_xo'])
             p_struct_xo = np.random.choice(params['p_struct_xo'])
+            ms_lower = int(np.random.choice(params['ms_lower']))
+            ms_upper = int(np.random.choice(params['ms_upper']))
 
             if init_depth + 6 > max_depth:
                 max_depth = init_depth + 6
 
             slim_ = slim(X_train=X_train, y_train=y_train, dataset_name='dataset_1',
                             X_test=X_test, y_test=y_test, slim_version=algorithm, pop_size=pop_size, n_iter=n_iter,
-                            ms_lower=0, ms_upper=1, p_inflate=p_inflate, max_depth=max_depth, init_depth=init_depth, 
+                            ms_lower=ms_lower, ms_upper=ms_upper, p_inflate=p_inflate, max_depth=max_depth, init_depth=init_depth, 
                             seed=20, prob_const=prob_const, n_elites=1, log_level=0, verbose=0,
                             struct_mutation=struct_mutation, prob_replace=prob_replace, p_prune=p_prune, 
-                            p_xo=p_xo, p_struct_xo=p_struct_xo, tournament_size=tournament_size,
+                            p_xo=p_xo, p_struct_xo=p_struct_xo, tournament_size=tournament_size, 
                             )
 
             predictions_slim = slim_.predict(X_test)
@@ -206,7 +210,7 @@ def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50,
 
             if gsgp_model.nodes > threshold:
                 # Skip if the tree is too large
-                print(f"Parameters: {p_xo}, {init_depth}, {prob_const}, {tournament_size}")
+                print(f"Parameters: {p_xo}, {init_depth}, {prob_const}, {tournament_size}, {ms_lower}, {ms_upper}")
             
             else:
                 print('Individual normal size')
@@ -243,3 +247,45 @@ def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50,
         pickle.dump(best_hyperparameters, f)
 
     return best_hyperparameters
+
+
+
+# -------------------------------- GP --------------------------------
+
+def random_search_gp(X, y, dataset, scale=False, p_train=0.7, iterations=50,
+                        pop_size=100, n_iter=100, verbose=0, threshold=100000):
+        """
+        Perform a random search for the best hyperparameters for the GP algorithm.
+    
+        Arguments
+        ---------
+        X: torch.tensor
+            The input data.
+        y: torch.tensor     
+            The target data.
+        dataset: str
+            The name of the dataset.
+        scale: bool
+            Whether to scale the data or not.
+        p_train: float
+            The percentage of the training set.
+        iterations: int
+            The number of iterations to perform.
+        pop_size: int
+            The population size.
+        n_iter: int
+            The number of iterations to perform.
+        verbose: int
+            The verbosity level.
+        threshold: int
+            The maximum number of nodes allowed in the tree.
+    
+        Returns
+        -------
+        best_hyperparameters: dict
+            A dictionary containing the best hyperparameters for the GP algorithm
+        """
+        
+        # Define parameter space
+        params = {
+        }
