@@ -170,7 +170,7 @@ def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50,
     
     # Define parameter space
     params = {
-        'p_xo': [0, 0, 0, 0.05, 0.1, 0.15],
+        'p_xo': [0, 0],
         'init_depth': [3, 4, 5, 6, 7, 8],
         'prob_const': [0.05, 0.1, 0.15, 0.2],
         'tournament_size': [2, 3, 4],
@@ -215,9 +215,6 @@ def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50,
             if gsgp_model.nodes > threshold:
                 # Skip if the tree is too large
                 print(f"Parameters: {p_xo}, {init_depth}, {prob_const}, {tournament_size}, {ms_lower}, {ms_upper}")
-            
-            else:
-                print('Individual normal size')
 
             # Predict and evaluate
             predictions = gsgp_model.predict(X_test)
