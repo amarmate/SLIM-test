@@ -291,6 +291,74 @@ def random_search_gp(X, y, dataset, scale=False, p_train=0.7, iterations=50,
         
         # Define parameter space
         params = {
-            "p_xo" : [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
-            
+            "p_xo" : [0.35, 0.5, 0.6, 0.7, 0.8, 0.9],
+            "max_depth" : [14,15,16,17,18,19],
+            "init_depth" : [5, 6, 7, 8],
+            "prob_const" : [0, 0.05, 0.1, 0.15, 0.2],
         }
+
+        # Random search loop
+        results = {}
+
+        for i in tqdm(range(iterations), disable=not show_progress):
+            # Dataset split
+            X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=i)
+
+            if scale:
+                scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
+                X_train = torch.tensor(scaler_x.fit_transform(X_train), dtype=torch.float32)
+                X_test = torch.tensor(scaler_x.transform(X_test), dtype=torch.float32)
+                y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
+                y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
+
+            # Randomly select parameters
+            p_xo = np.random.choice(params['p_xo'])
+            max_depth = int(np.random.choice(params['max_depth']))
+            init_depth = int(np.random.choice(params['init_depth']))
+            prob_const = np.random.choice(params['prob_const'])
+
+            # Run GP
+            try:
+                gp_model = gp(
+                    X_train=X_train, y_train=y_train,
+                    X_test=X_test, y_test=y_test,
+                    pop_size=pop_size, n_iter=n_iter,
+                    p_xo=p_xo, max_depth=max_depth,
+                    init_depth=init_depth, prob_const=prob_const,
+                    dataset_name='random_search_gp',
+                    verbose=verbose, log_level=0, minimization=True
+                )
+
+                # Predict and evaluate
+                predictions = gp_model.predict(X_test)
+                rmse_score = float(rmse(y_true=y_test, y_pred=predictions))
+
+                # Store results
+                results[rmse_score] = {
+                    'p_xo': p_xo,
+                    'max_depth': max_depth,
+                    'init_depth': init_depth,
+                    'pop_size': pop_size,
+                    'n_iter': n_iter,
+                    'prob_const': prob_const,
+                }
+            except Exception as e:
+                print(f"Iteration {i} failed with error: {e}")
+                continue
+
+        # Sort results by RMSE and return the best configuration
+        results = {k: v for k, v in sorted(results.items(), key=lambda item: item[0])}
+        best_hyperparameters = list(results.values())[0] if results else {}
+
+        # Pickle the results
+        output_dir = os.path.join(os.getcwd(), "best_params")
+        output_file = f"best_gp_{dataset}_{pop_size}_{n_iter}_{scale}.pkl"
+        output_file = os.path.join(output_dir, output_file)
+        os.makedirs(output_dir, exist_ok=True)
+
+        with open(output_file, "wb") as f:
+            pickle.dump(best_hyperparameters, f)
+
+        return best_hyperparameters
+
+# -------------------------------- MAIN --------------------------------

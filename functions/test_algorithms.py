@@ -149,8 +149,9 @@ def test_slim(X, y, args_dict=None,
     return rmse_, mape_, nrmse_, r2_, mae_, std_rmse_, time_stats, train_fit, test_fit, size
 
 
-# ----------------------------------- GSGP ----------------------------------- #
 
+
+# ----------------------------------- GSGP ----------------------------------- #
 def test_gsgp(X, y, args_dict=None,
               dataset_name='dataset_1', 
               iterations=30,
@@ -256,6 +257,119 @@ def test_gsgp(X, y, args_dict=None,
         mape_.append(mape_score)
         nrmse_.append(nrmse_score)
         r2_.append(r2_score)
+        mae_.append(mae_score)
+        std_rmse_.append(std_rmse_score)
+        time_stats.append(time_taken)
+        train_fit.append(train_fitness_elite)
+        test_fit.append(test_fitness_elite)
+        size.append(nodes_count)
+
+    return rmse_, mape_, nrmse_, r2_, mae_, std_rmse_, time_stats, train_fit, test_fit, size
+
+
+
+
+# ----------------------------------- GP ----------------------------------- #
+def test_gp(X, y, args_dict=None,
+            dataset_name='dataset_1',
+            iterations=30,
+            scale=True,
+            verbose=0,
+            p_train=0.7,
+            show_progress=True
+):
+    
+    """
+    Arguments
+    ---------
+    X: torch.tensor
+        The input data. 
+    y: torch.tensor
+        The target data.
+    args_dict: dict
+        A dictionary containing the hyperparameters for the GP algorithm.
+    dataset_name: str
+        The name of the dataset.
+    iterations: int
+        The number of iterations to perform.
+    scale: bool
+        Whether to scale the data or not.
+    verbose: int
+        The verbosity level.
+    p_train: float
+        The percentage of the training set.
+    show_progress: bool
+        Whether to show the progress bar or not.
+
+    Returns
+    -------
+
+    rmse: list
+        A list containing the RMSE scores.
+    mape: list
+        A list containing the MAPE scores.
+    nrmse: list
+        A list containing the NRMSE scores.
+    r2: list
+        A list containing the R-squared scores.
+    mae: list
+        A list containing the MAE scores.
+    std_rmse: list
+        A list containing the standardized RMSE scores.
+    time_stats: list
+        A list containing the time taken to train the model.
+    train_fit: list
+        A list containing the training fitness scores.
+    test_fit: list
+        A list containing the test fitness scores.
+    size: list
+        A list containing the size of the trees.
+    """
+
+    rmse_, mape_, nrmse_, r2_, mae_, std_rmse_, time_stats, train_fit, test_fit, size = [], [], [], [], [], [], [], [], [], []
+
+    for it in tqdm(range(iterations), disable=not show_progress):
+        X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=it)
+
+        if scale:
+            scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
+            X_train = torch.tensor(scaler_x.fit_transform(X_train), dtype=torch.float32)
+            X_test = torch.tensor(scaler_x.transform(X_test), dtype=torch.float32)
+            y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
+            y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
+
+        path = f"logs/{dataset_name}/GP_{it}.log"
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
+            
+        start = time.time()
+        final_tree = gp(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
+                        dataset_name=dataset_name, seed=it,
+                        log_path=path, verbose=verbose, **args_dict)
+        end = time.time()
+
+        # Get the node count of the tree
+        nodes_count = final_tree.node_count
+        time_taken = end - start
+        train_fitness_elite = final_tree.fitness.item()
+        test_fitness_elite = final_tree.test_fitness.item()
+
+        # Calculate predictions and metrics
+        y_pred = final_tree.predict(X_test)
+            
+        rmse_score = rmse(y_test, y_pred).item()
+        mape_score = mape(y_test, y_pred)
+        nrmse_score = nrmse(y_test, y_pred)
+        r2_score = r_squared(y_test, y_pred)
+        mae_score = mae(y_test, y_pred)
+        std_rmse_score = standardized_rmse(y_test, y_pred)
+        
+        # Append metrics to respective lists
+        rmse_.append(rmse_score)
+        mape_.append(mape_score)
+        nrmse_.append(nrmse_score)
+        r2_.append(r2_score)
+
         mae_.append(mae_score)
         std_rmse_.append(std_rmse_score)
         time_stats.append(time_taken)
