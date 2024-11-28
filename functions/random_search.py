@@ -15,7 +15,7 @@ import pickle
 
 def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
                        iterations=50, pop_size=100, n_iter=100,
-                       struct_mutation=False):
+                       struct_mutation=False, show_progress=True):
     
     """"
     Perform a random search for the best hyperparameters for the SLIM algorithm.
@@ -40,6 +40,8 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
         The number of iterations to perform.
     struct_mutation: bool
         Whether to use structural mutation or not.
+    show_progress: bool
+        Whether to show the progress bar or not.
 
     Returns
     -------
@@ -63,7 +65,7 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
     results_slim = {}
     for algorithm in ["SLIM+SIG2", "SLIM*SIG2", "SLIM+ABS", "SLIM*ABS", "SLIM+SIG1", "SLIM*SIG1"]:
         results = {}
-        for i in tqdm(range(iterations)):
+        for i in tqdm(range(iterations), disable=not show_progress):
             # Perform a split of the dataset
             X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=i)
 
@@ -131,7 +133,7 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
 # -------------------------------- GSGP --------------------------------
 
 def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50, 
-                       pop_size=100, n_iter=100, verbose=0, threshold=100000):
+                       pop_size=100, n_iter=100, verbose=0, threshold=100000, show_progress=True):
     """
     Perform a random search for the best hyperparameters for the GSGP algorithm.
 
@@ -157,6 +159,8 @@ def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50,
         The verbosity level.
     threshold: int
         The maximum number of nodes allowed in the tree.
+    show_progress: bool
+        Whether to show the progress bar or not.
 
     Returns
     -------
@@ -176,7 +180,7 @@ def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50,
 
     # Random search loop
     results = {}
-    for i in tqdm(range(iterations)):
+    for i in tqdm(range(iterations), disable=not show_progress):
         # Dataset split
         X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=i)
 
@@ -253,7 +257,7 @@ def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50,
 # -------------------------------- GP --------------------------------
 
 def random_search_gp(X, y, dataset, scale=False, p_train=0.7, iterations=50,
-                        pop_size=100, n_iter=100, verbose=0, threshold=100000):
+                        pop_size=100, n_iter=100, verbose=0, threshold=100000, show_progress=True):
         """
         Perform a random search for the best hyperparameters for the GP algorithm.
     
@@ -279,6 +283,8 @@ def random_search_gp(X, y, dataset, scale=False, p_train=0.7, iterations=50,
             The verbosity level.
         threshold: int
             The maximum number of nodes allowed in the tree.
+        show_progress: bool
+            Whether to show the progress bar or not.
     
         Returns
         -------
@@ -288,4 +294,6 @@ def random_search_gp(X, y, dataset, scale=False, p_train=0.7, iterations=50,
         
         # Define parameter space
         params = {
+            "p_xo" : [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8],
+            
         }

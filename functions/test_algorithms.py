@@ -28,6 +28,7 @@ def test_slim(X, y, args_dict=None,
             verbose=0,
             p_train=0.7,
             tournament_size=2,
+            show_progress=True,
 ):    
     """
 
@@ -67,6 +68,8 @@ def test_slim(X, y, args_dict=None,
         The percentage of the training set.
     tournament_size: int
         The tournament size.
+    show_progress: bool
+        Whether to show the progress bar or not.
 
     Returns
     -------
@@ -94,7 +97,7 @@ def test_slim(X, y, args_dict=None,
     
     rmse_, mape_, nrmse_, r2_, mae_, std_rmse_, time_stats, train_fit, test_fit, size = [], [], [], [], [], [], [], [], [], []
 
-    for it in tqdm(range(iterations)):
+    for it in tqdm(range(iterations), disable=not show_progress):
         X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=it)
 
         if scale:
@@ -155,6 +158,7 @@ def test_gsgp(X, y, args_dict=None,
               verbose=0,
               p_train=0.7,
               threshold=100000,
+              show_progress=True
 ):    
     """
     Arguments
@@ -177,6 +181,8 @@ def test_gsgp(X, y, args_dict=None,
         The percentage of the training set.
     threshold: int
         The maximum number of nodes allowed in the tree.
+    show_progress: bool
+        Whether to show the progress bar or not.
 
 
     Returns
@@ -205,7 +211,7 @@ def test_gsgp(X, y, args_dict=None,
     
     rmse_, mape_, nrmse_, r2_, mae_, std_rmse_, time_stats, train_fit, test_fit, size = [], [], [], [], [], [], [], [], [], []
 
-    for it in tqdm(range(iterations)):
+    for it in tqdm(range(iterations), disable=not show_progress):
         X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=it)
 
         if scale:
