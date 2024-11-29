@@ -19,11 +19,11 @@ for dataset_loader in tqdm(datasets):
     print(f"Performing random search for {dataset_name}...")
     results_unscaled = random_search_slim(X, y, dataset_name, scale=False, p_train=p_train,
                                           iterations=n_iter_rs, pop_size=pop_size, n_iter=n_iter,
-                                          struct_mutation=False, show_progress=True)
+                                          struct_mutation=False, show_progress=False)
     
     results_scaled = random_search_slim(X, y, dataset_name, scale=True, p_train=p_train,
                                         iterations=n_iter_rs, pop_size=pop_size, n_iter=n_iter,
-                                        struct_mutation=False, show_progress=True)
+                                        struct_mutation=False, show_progress=False)
     
     print(f"Random search for {dataset_name} completed!")
     
@@ -42,7 +42,7 @@ for dataset_loader in tqdm(datasets):
             X=X, y=y, args_dict=args_unscaled, dataset_name=dataset_loader.__name__,
             ms_lower=0, ms_upper=1, n_elites=1,
             iterations=n_iter_test, struct_mutation=False, scale=False, algorithm=algorithm,
-            verbose=0, p_train=p_train, show_progress=True,
+            verbose=0, p_train=p_train, show_progress=False,
         )
         
         # Test SLIM for scaled data
@@ -50,7 +50,7 @@ for dataset_loader in tqdm(datasets):
             X=X, y=y, args_dict=args_scaled, dataset_name=dataset_loader.__name__,
             ms_lower=0, ms_upper=1, n_elites=1,
             iterations=n_iter_test, struct_mutation=False, scale=True, algorithm=algorithm,
-            verbose=0, p_train=p_train, show_progress=True,
+            verbose=0, p_train=p_train, show_progress=False,
         )
         
         # Initialize storage for each algorithm if not already present

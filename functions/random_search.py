@@ -17,7 +17,8 @@ import functools
 
 def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
                        iterations=50, pop_size=100, n_iter=100,
-                       struct_mutation=False, show_progress=True):
+                       struct_mutation=False, show_progress=True, 
+                       save=True, identifier=None):
     
     """"
     Perform a random search for the best hyperparameters for the SLIM algorithm.
@@ -44,6 +45,10 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
         Whether to use structural mutation or not.
     show_progress: bool
         Whether to show the progress bar or not.
+    save: bool
+        Whether to save the results or not.
+    identifier: str
+        A unique identifier for the output file.
 
     Returns
     -------
@@ -52,13 +57,13 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
     """
     params = {
     'p_inflate': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-    'max_depth': [12,13,14,15,16,17,18,19,20,21,22,23,24],
+    'max_depth': [12,13,14,15,16,17,18,19,20,21,22],
     'init_depth': [5,6,7,8,9,10,11,12],
     'prob_const': [0.05, 0.1, 0.15, 0.2],
-    'tournament_size': [2, 3, 4],
+    'tournament_size': [2, 3],
     'ms_lower': [0, 0, 0, 0.05, 0.1],
     'ms_upper': [1, 1, 1, 1, 0.8, 0.6, 0.4, 0.2, 0.1],
-    'p_prune': [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] if struct_mutation==True else [0,0],
+    'p_prune': [0.2, 0.3, 0.4, 0.5, 0.6, 0.7] if struct_mutation==True else [0,0],
     'p_xo': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] if struct_mutation==True else [0,0],
     'p_struct_xo': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7] if struct_mutation==True else [0,0],
     'prob_replace': [0.01, 0.015, 0.02, 0.025] if struct_mutation==True else [0,0],
@@ -121,13 +126,17 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
         results_slim[algorithm] = best_hyperparameters
 
     # Pickle the results
-    output_dir = os.path.join(os.getcwd(), "best_params")
-    output_file = f"best_slim_{dataset}_{pop_size}_{n_iter}_{scale}.pkl"
-    output_file = os.path.join(output_dir, output_file)
-    os.makedirs(output_dir, exist_ok=True)
+    if save:
+        output_dir = os.path.join(os.getcwd(), "best_params")
+        if identifier is None:
+            output_file = f"best_slim_{dataset}_{pop_size}_{n_iter}_{scale}.pkl"
+        else:
+            output_file = f"best_slim_{dataset}_{pop_size}_{n_iter}_{scale}_{identifier}.pkl"
+        output_file = os.path.join(output_dir, output_file)
+        os.makedirs(output_dir, exist_ok=True)
 
-    with open(output_file, "wb") as f:
-        pickle.dump(results_slim, f)
+        with open(output_file, "wb") as f:
+            pickle.dump(results_slim, f)
     return results_slim
 
 
