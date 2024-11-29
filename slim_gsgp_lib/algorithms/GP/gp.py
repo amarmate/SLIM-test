@@ -187,13 +187,17 @@ class GP:
 
         # displaying the results on console if verbose level is not 0
         if verbose != 0:
+            verbose_params = {
+                "dataset": curr_dataset.split("load_")[-1],
+                "iteration": 0,
+                "fitness": self.elite.fitness,
+                "test_fitness": self.elite.test_fitness,
+                "time": end - start,
+                "nodes": self.elite.node_count,
+            }
             verbose_reporter(
-                curr_dataset.split("load_")[-1],
-                0,
-                self.elite.fitness,
-                self.elite.test_fitness,
-                end - start,
-                self.elite.node_count,
+                verbose_params, 
+                first=True,
             )
 
         # EVOLUTIONARY PROCESS
@@ -229,13 +233,17 @@ class GP:
 
             # displaying the results on console if verbose != 0
             if verbose != 0:
+                verbose_params = {
+                    "dataset": run_info[-1],
+                    "iteration": it,
+                    "fitness": self.elite.fitness,
+                    "test_fitness": self.elite.test_fitness,
+                    "time": end - start,
+                    "nodes": self.elite.node_count,
+                }
                 verbose_reporter(
-                    run_info[-1],
-                    it,
-                    self.elite.fitness,
-                    self.elite.test_fitness,
-                    end - start,
-                    self.elite.node_count,
+                    verbose_params, 
+                    first=False,
                 )
 
     def evolve_population(

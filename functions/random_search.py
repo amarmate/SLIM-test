@@ -9,6 +9,8 @@ from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 import os 
 import pickle
+import threading
+import functools
 
 
 # -------------------------------- SLIM --------------------------------
@@ -252,6 +254,41 @@ def random_search_gsgp(X, y, dataset,scale=False, p_train=0.7, iterations=50,
 
 
 # -------------------------------- GP --------------------------------
+def timeout(seconds):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            result = [TimeoutError('Function call timed out')]
+            def target():
+                try:
+                    result[0] = func(*args, **kwargs)
+                except Exception as e:
+                    result[0] = e
+            thread = threading.Thread(target=target)
+            thread.start()
+            thread.join(seconds)
+            if thread.is_alive():
+                raise TimeoutError('Function call timed out')
+            if isinstance(result[0], Exception):
+                raise result[0]
+            return result[0]
+        return wrapper
+    return decorator
+
+
+@timeout(100)
+def run_gp_with_timeout(X_train, y_train, X_test, y_test, pop_size, n_iter, p_xo, max_depth, init_depth, prob_const, dataset_name, verbose):
+    gp_model = gp(
+        X_train=X_train, y_train=y_train,
+        X_test=X_test, y_test=y_test,
+        pop_size=pop_size, n_iter=n_iter,
+        p_xo=p_xo, max_depth=max_depth,
+        init_depth=init_depth, prob_const=prob_const,
+        dataset_name=dataset_name,
+        verbose=verbose, log_level=0, minimization=True
+    )
+    return gp_model
+
 
 def random_search_gp(X, y, dataset, scale=False, p_train=0.7, iterations=50,
                         pop_size=100, n_iter=100, verbose=0, threshold=100000, show_progress=True):
@@ -319,15 +356,15 @@ def random_search_gp(X, y, dataset, scale=False, p_train=0.7, iterations=50,
 
             # Run GP
             try:
-                gp_model = gp(
-                    X_train=X_train, y_train=y_train,
-                    X_test=X_test, y_test=y_test,
-                    pop_size=pop_size, n_iter=n_iter,
-                    p_xo=p_xo, max_depth=max_depth,
-                    init_depth=init_depth, prob_const=prob_const,
-                    dataset_name='random_search_gp',
-                    verbose=verbose, log_level=0, minimization=True
-                )
+                gp_model = run_gp_with_timeout(
+                X_train=X_train, y_train=y_train,
+                X_test=X_test, y_test=y_test,
+                pop_size=pop_size, n_iter=n_iter,
+                p_xo=p_xo, max_depth=max_depth,
+                init_depth=init_depth, prob_const=prob_const,
+                dataset_name='random_search_gp',
+                verbose=verbose
+            )
 
                 # Predict and evaluate
                 predictions = gp_model.predict(X_test)
@@ -342,9 +379,12 @@ def random_search_gp(X, y, dataset, scale=False, p_train=0.7, iterations=50,
                     'n_iter': n_iter,
                     'prob_const': prob_const,
                 }
+
+            except TimeoutError:
+                print(f"Iteration {i} timed out after 100 seconds")
+
             except Exception as e:
                 print(f"Iteration {i} failed with error: {e}")
-                continue
 
         # Sort results by RMSE and return the best configuration
         results = {k: v for k, v in sorted(results.items(), key=lambda item: item[0])}
