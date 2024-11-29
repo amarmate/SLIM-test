@@ -6,7 +6,7 @@ import pickle
 datasets = [globals()[i] for i in globals() if 'load' in i][2:]
 
 pop_size = 100 
-n_iter = 2000
+n_iter = 1000
 n_iter_rs = 3
 n_iter_test = 3
 p_train = 0.7
@@ -19,11 +19,11 @@ for dataset_loader in tqdm(datasets):
     print(f"Performing random search for {dataset_name}...")
     results_unscaled = random_search_slim(X, y, dataset_name, scale=False, p_train=p_train,
                                           iterations=n_iter_rs, pop_size=pop_size, n_iter=n_iter,
-                                          struct_mutation=False, show_progress=False)
+                                          struct_mutation=False, show_progress=True)
     
     results_scaled = random_search_slim(X, y, dataset_name, scale=True, p_train=p_train,
                                         iterations=n_iter_rs, pop_size=pop_size, n_iter=n_iter,
-                                        struct_mutation=False, show_progress=False)
+                                        struct_mutation=False, show_progress=True)
     
     print(f"Random search for {dataset_name} completed!")
     
@@ -42,7 +42,7 @@ for dataset_loader in tqdm(datasets):
             X=X, y=y, args_dict=args_unscaled, dataset_name=dataset_loader.__name__,
             ms_lower=0, ms_upper=1, n_elites=1,
             iterations=n_iter_test, struct_mutation=False, scale=False, algorithm=algorithm,
-            verbose=0, p_train=p_train, show_progress=False,
+            verbose=0, p_train=p_train, show_progress=True,
         )
         
         # Test SLIM for scaled data
@@ -50,7 +50,7 @@ for dataset_loader in tqdm(datasets):
             X=X, y=y, args_dict=args_scaled, dataset_name=dataset_loader.__name__,
             ms_lower=0, ms_upper=1, n_elites=1,
             iterations=n_iter_test, struct_mutation=False, scale=True, algorithm=algorithm,
-            verbose=0, p_train=p_train, show_progress=False,
+            verbose=0, p_train=p_train, show_progress=True,
         )
         
         # Initialize storage for each algorithm if not already present
@@ -86,6 +86,9 @@ for dataset_loader in tqdm(datasets):
         print(f"Results for {algorithm} on {dataset_name} saved!")
 
     # Save the results to disk
+    if not os.path.exists("output/SLIM"):
+        os.makedirs("output/SLIM")
+
     with open(f"output/SLIM/{dataset_name}_scaled.pkl", 'wb') as f:
         pickle.dump(results_scaled_dict, f)
 
