@@ -7,7 +7,7 @@ datasets = [globals()[i] for i in globals() if 'load' in i][2:]
 
 pop_size = 100 
 n_iter = 100
-n_iter_rs = 3
+n_iter_rs = 10
 n_iter_test = 3
 p_train = 0.7
 

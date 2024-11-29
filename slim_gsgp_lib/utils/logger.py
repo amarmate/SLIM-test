@@ -49,6 +49,10 @@ def log_settings(path: str, settings_dict: list, unique_run_id: UUID) -> None:
 
     infos = [unique_run_id, settings_dict]
 
+    # If the directory does not exist, create it
+    if not os.path.isdir(os.path.dirname(path)):
+        os.mkdir(os.path.dirname(path))
+
     with open(path, "a", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(infos)
