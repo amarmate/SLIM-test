@@ -34,6 +34,8 @@ from slim_gsgp_lib.utils.diversity import niche_entropy
 from slim_gsgp_lib.utils.logger import logger
 from slim_gsgp_lib.utils.utils import verbose_reporter
 
+from joblib import Parallel, delayed
+
 
 class GP:
     def __init__(
@@ -194,6 +196,7 @@ class GP:
                 "test_fitness": self.elite.test_fitness,
                 "time": end - start,
                 "nodes": self.elite.node_count,
+                "avg_nodes": np.mean([ind.node_count for ind in population.population]),
             }
             verbose_reporter(
                 verbose_params, 
@@ -240,6 +243,7 @@ class GP:
                     "test_fitness": self.elite.test_fitness,
                     "time": end - start,
                     "nodes": self.elite.node_count,
+                    "avg_nodes": np.mean([ind.node_count for ind in population.population]),
                 }
                 verbose_reporter(
                     verbose_params, 
@@ -247,73 +251,33 @@ class GP:
                 )
 
     def evolve_population(
-        self,
-        population,
-        ffunction,
-        max_depth,
-        depth_calculator,
-        elitism,
-        X_train,
-        y_train,
-        n_jobs=1
-    ):
-        """
-        Evolve the population for one iteration (generation).
-
-        Parameters
-        ----------
-        population : Population
-            The current population of individuals to evolve.
-        ffunction : function
-            Fitness function used to evaluate individuals.
-        max_depth : int
-            Maximum allowable depth for trees in the population.
-        depth_calculator : Callable
-            Function used to calculate the depth of trees.
-        elitism : bool
-            Whether to use elitism, i.e., preserving the best individuals across generations.
-        X_train : torch.Tensor
-            Input training data features.
-        y_train : torch.Tensor
-            Target values for the training data.
-        n_jobs : int, optional
-            Number of parallel jobs to use with the joblib library (default is 1).
-
-        Returns
-        -------
-        Population
-            The evolved population after one generation.
-        float
-            The start time of the evolution process.
-        """
-        # creating an empty offspring population list
+            self,
+            population,
+            ffunction,
+            max_depth,
+            depth_calculator,
+            elitism,
+            X_train,
+            y_train,
+            n_jobs=1
+        ):
         offs_pop = []
-
         start = time.time()
 
-        # adding the elite(s) to the offspring population
         if elitism:
             offs_pop.extend(self.elites)
 
-        # filling the offspring population
-        while len(offs_pop) < self.pop_size:
-            # choosing between crossover and mutation
-            if random.random() < self.p_xo: # if crossover is selected
-                # choose two parents
+        def generate_offspring():
+            if random.random() < self.p_xo:
                 p1, p2 = self.selector(population), self.selector(population)
-                # make sure that the parents are different
                 while p1 == p2:
                     p1, p2 = self.selector(population), self.selector(population)
-
-                # generate offspring from the chosen parents
                 offs1, offs2 = self.crossover(
                     p1.repr_,
                     p2.repr_,
                     tree1_n_nodes=p1.node_count,
                     tree2_n_nodes=p2.node_count,
                 )
-
-                # assuring the offspring do not exceed max_depth
                 if max_depth is not None:
                     while (
                         depth_calculator(offs1) > max_depth
@@ -325,38 +289,146 @@ class GP:
                             tree1_n_nodes=p1.node_count,
                             tree2_n_nodes=p2.node_count,
                         )
-
-                # grouping the offspring in a list to be added to the offspring population
-                offspring = [offs1, offs2]
-
-            else: # if mutation was chosen
-                # choosing a parent
+                return [offs1, offs2]
+            else:
                 p1 = self.selector(population)
-                # generating a mutated offspring from the parent
                 offs1 = self.mutator(p1.repr_, num_of_nodes=p1.node_count)
-
-                # making sure the offspring does not exceed max_depth
                 if max_depth is not None:
                     while depth_calculator(offs1) > max_depth:
                         offs1 = self.mutator(p1.repr_, num_of_nodes=p1.node_count)
+                return [offs1]
 
-                # adding the offspring to a list, to be added to the offspring population
-                offspring = [offs1]
+        # Parallel generation of offspring
+        offspring_needed = self.pop_size - len(offs_pop)
+        offspring_list = Parallel(n_jobs=n_jobs)(
+            delayed(generate_offspring)() for _ in range(offspring_needed)
+        )
 
-            # adding the offspring as instances of Tree to the offspring population
-            offs_pop.extend([Tree(child) for child in offspring])
+        # Flatten the list of offspring
+        offs_pop.extend([Tree(child) for offspring in offspring_list for child in offspring])
 
-        # making sure the offspring population is of the same size as the population
+        # Trim excess offspring
         if len(offs_pop) > population.size:
-            offs_pop = offs_pop[: population.size]
+            offs_pop = offs_pop[:population.size]
 
-        # turning the offspring population into an instance of Population
         offs_pop = Population(offs_pop)
-        # evaluating the offspring population
+
         offs_pop.evaluate(ffunction, X=X_train, y=y_train, n_jobs=n_jobs)
 
-        # retuning the offspring population and the time control variable
         return offs_pop, start
+
+
+    # def evolve_population(
+    #     self,
+    #     population,
+    #     ffunction,
+    #     max_depth,
+    #     depth_calculator,
+    #     elitism,
+    #     X_train,
+    #     y_train,
+    #     n_jobs=1
+    # ):
+    #     """
+    #     Evolve the population for one iteration (generation).
+
+    #     Parameters
+    #     ----------
+    #     population : Population
+    #         The current population of individuals to evolve.
+    #     ffunction : function
+    #         Fitness function used to evaluate individuals.
+    #     max_depth : int
+    #         Maximum allowable depth for trees in the population.
+    #     depth_calculator : Callable
+    #         Function used to calculate the depth of trees.
+    #     elitism : bool
+    #         Whether to use elitism, i.e., preserving the best individuals across generations.
+    #     X_train : torch.Tensor
+    #         Input training data features.
+    #     y_train : torch.Tensor
+    #         Target values for the training data.
+    #     n_jobs : int, optional
+    #         Number of parallel jobs to use with the joblib library (default is 1).
+
+    #     Returns
+    #     -------
+    #     Population
+    #         The evolved population after one generation.
+    #     float
+    #         The start time of the evolution process.
+    #     """
+    #     # creating an empty offspring population list
+    #     offs_pop = []
+
+    #     start = time.time()
+
+    #     # adding the elite(s) to the offspring population
+    #     if elitism:
+    #         offs_pop.extend(self.elites)
+
+    #     # filling the offspring population
+    #     while len(offs_pop) < self.pop_size:
+    #         # choosing between crossover and mutation
+    #         if random.random() < self.p_xo: # if crossover is selected
+    #             # choose two parents
+    #             p1, p2 = self.selector(population), self.selector(population)
+    #             # make sure that the parents are different
+    #             while p1 == p2:
+    #                 p1, p2 = self.selector(population), self.selector(population)
+
+    #             # generate offspring from the chosen parents
+    #             offs1, offs2 = self.crossover(
+    #                 p1.repr_,
+    #                 p2.repr_,
+    #                 tree1_n_nodes=p1.node_count,
+    #                 tree2_n_nodes=p2.node_count,
+    #             )
+
+    #             # assuring the offspring do not exceed max_depth
+    #             if max_depth is not None:
+    #                 while (
+    #                     depth_calculator(offs1) > max_depth
+    #                     or depth_calculator(offs2) > max_depth
+    #                 ):
+    #                     offs1, offs2 = self.crossover(
+    #                         p1.repr_,
+    #                         p2.repr_,
+    #                         tree1_n_nodes=p1.node_count,
+    #                         tree2_n_nodes=p2.node_count,
+    #                     )
+
+    #             # grouping the offspring in a list to be added to the offspring population
+    #             offspring = [offs1, offs2]
+
+    #         else: # if mutation was chosen
+    #             # choosing a parent
+    #             p1 = self.selector(population)
+    #             # generating a mutated offspring from the parent
+    #             offs1 = self.mutator(p1.repr_, num_of_nodes=p1.node_count)
+
+    #             # making sure the offspring does not exceed max_depth
+    #             if max_depth is not None:
+    #                 while depth_calculator(offs1) > max_depth:
+    #                     offs1 = self.mutator(p1.repr_, num_of_nodes=p1.node_count)
+
+    #             # adding the offspring to a list, to be added to the offspring population
+    #             offspring = [offs1]
+
+    #         # adding the offspring as instances of Tree to the offspring population
+    #         offs_pop.extend([Tree(child) for child in offspring])
+
+    #     # making sure the offspring population is of the same size as the population
+    #     if len(offs_pop) > population.size:
+    #         offs_pop = offs_pop[: population.size]
+
+    #     # turning the offspring population into an instance of Population
+    #     offs_pop = Population(offs_pop)
+    #     # evaluating the offspring population
+    #     offs_pop.evaluate(ffunction, X=X_train, y=y_train, n_jobs=n_jobs)
+
+    #     # retuning the offspring population and the time control variable
+    #     return offs_pop, start
 
     def log_generation(
         self, generation, population, elapsed_time, log, log_path, run_info
