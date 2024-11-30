@@ -115,7 +115,7 @@ def test_slim(X, y, args_dict=None,
         start = time.time()
         final_tree = slim(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
                             dataset_name=dataset_name, slim_version=algorithm, pop_size=pop_size, n_iter=n_iter, seed=it, ms_lower=ms_lower, ms_upper=ms_upper,
-                            reconstruct=True, n_jobs=1, tournament_size=tournament_size, initializer=initializer, struct_mutation=struct_mutation,
+                            reconstruct=True, n_jobs=1, tournament_size=tournament_size, initializer=initializer,
                             log_path=path, verbose=verbose, log_level=3, n_elites=n_elites, **args_dict)
         end = time.time()
         
