@@ -28,6 +28,7 @@ def test_slim(X, y, args_dict=None,
             p_train=0.7,
             tournament_size=2,
             show_progress=True,
+            log = False
 ):    
     """
 
@@ -69,6 +70,8 @@ def test_slim(X, y, args_dict=None,
         The tournament size.
     show_progress: bool
         Whether to show the progress bar or not.
+    log: bool
+        Whether to log the results or not.
 
     Returns
     -------
@@ -94,7 +97,7 @@ def test_slim(X, y, args_dict=None,
         A list containing the size of the trees.
     """
     
-    rmse_, mape_, nrmse_, r2_, mae_, std_rmse_, time_stats, train_fit, test_fit, size = [], [], [], [], [], [], [], [], [], []
+    rmse_, mae_, mape_, rmse_compare, mae_compare, mape_compare, time_stats, train_fit, test_fit, size, representations = [], [], [], [], [], [], [], [], [], [], []
 
     for it in tqdm(range(iterations), disable=not show_progress):
         X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=it)
@@ -106,16 +109,17 @@ def test_slim(X, y, args_dict=None,
             y_train = torch.tensor(scaler_y.fit_transform(y_train.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
             y_test = torch.tensor(scaler_y.transform(y_test.reshape(-1, 1)).reshape(-1), dtype=torch.float32)
 
-        algorithm_name = 'MUL-' + algorithm.split('*')[1] if '*' in algorithm else 'ADD-' + algorithm.split('+')[1]
-        path = f"logs/{dataset_name}/{algorithm_name}_{it}.log"
-        if not os.path.exists(os.path.dirname(path)):
-            os.makedirs(os.path.dirname(path))
+        if log:
+            algorithm_name = 'MUL-' + algorithm.split('*')[1] if '*' in algorithm else 'ADD-' + algorithm.split('+')[1]
+            path = f"logs/{dataset_name}/{algorithm_name}_{it}.log"
+            if not os.path.exists(os.path.dirname(path)):
+                os.makedirs(os.path.dirname(path))
             
         start = time.time()
         final_tree = slim(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
                             dataset_name=dataset_name, slim_version=algorithm, pop_size=pop_size, n_iter=n_iter, seed=it, ms_lower=ms_lower, ms_upper=ms_upper,
                             reconstruct=True, n_jobs=1, tournament_size=tournament_size, initializer=initializer,
-                            log_path=path, verbose=verbose, log_level=3, n_elites=n_elites, **args_dict)
+                            log_path=path, verbose=verbose,n_elites=n_elites, **args_dict, log_level=(3 if log else 0))
         end = time.time()
         
         # Get the node count of the tree
@@ -127,27 +131,33 @@ def test_slim(X, y, args_dict=None,
         # Calculate predictions and metrics
         y_pred = final_tree.predict(X_test)
         rmse_score = rmse(y_test, y_pred).item()
-        mape_score = mape(y_test, y_pred)
-        nrmse_score = nrmse(y_test, y_pred)
-        r2_score = r_squared(y_test, y_pred)
         mae_score = mae(y_test, y_pred)
-        std_rmse_score = standardized_rmse(y_test, y_pred)
+        mape_score = mape(y_test, y_pred)
+        rmse_compare = rmse_score
+        mae_compare = mae_score
+        mape_compare = mape_score
+
+        if scale:
+            y_pred_descaled = scaler_y.inverse_transform(y_pred.reshape(-1, 1)).reshape(-1)
+            y_test_descaled = scaler_y.inverse_transform(y_test.reshape(-1, 1)).reshape(-1)
+            rmse_compare = rmse(y_test_descaled, y_pred_descaled).item()
+            mae_compare = mae(y_test_descaled, y_pred_descaled)
+            mape_compare = mape(y_test_descaled, y_pred_descaled)
         
         # Append metrics to respective lists
         rmse_.append(rmse_score)
         mape_.append(mape_score)
-        nrmse_.append(nrmse_score)
-        r2_.append(r2_score)
         mae_.append(mae_score)
-        std_rmse_.append(std_rmse_score)
+        rmse_compare.append(rmse_compare)
+        mape_compare.append(mape_compare)
+        mae_compare.append(mae_compare)
         time_stats.append(time_taken)
         train_fit.append(train_fitness_elite)
         test_fit.append(test_fitness_elite)
         size.append(nodes_count)
+        representations.append(final_tree.get_tree_representation())
 
-    return rmse_, mape_, nrmse_, r2_, mae_, std_rmse_, time_stats, train_fit, test_fit, size
-
-
+    return rmse_, mape_, mae_, rmse_compare, mape_compare, mae_compare, time_stats, train_fit, test_fit, size, representations
 
 
 # ----------------------------------- GSGP ----------------------------------- #
@@ -228,7 +238,7 @@ def test_gsgp(X, y, args_dict=None,
         start = time.time()
         final_tree = gsgp(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
                           dataset_name=dataset_name, seed=it,
-                          log_path=path, verbose=verbose, **args_dict, reconstruct=True)
+                          log_path=path, verbose=verbose, **args_dict, reconstruct=True, log_level=0)
         end = time.time()
 
         if final_tree.nodes > threshold:
@@ -344,7 +354,7 @@ def test_gp(X, y, args_dict=None,
         start = time.time()
         final_tree = gp(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
                         dataset_name=dataset_name, seed=it,
-                        log_path=path, verbose=verbose, **args_dict)
+                        log_path=path, verbose=verbose, **args_dict, log_level=0)
         end = time.time()
 
         # Get the node count of the tree
