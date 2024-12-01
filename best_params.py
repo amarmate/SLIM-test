@@ -30,6 +30,7 @@ def process_dataset(args):
     with open(f'params/{dataset_name}_{scale_suffix}.pkl', 'wb') as f:
         pickle.dump(results, f)
 
+
 if __name__ == '__main__':
     # Define tasks for both scaled and unscaled processing
     tasks = [(loader, True) for loader in datasets] + [(loader, False) for loader in datasets]

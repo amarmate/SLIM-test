@@ -82,7 +82,7 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
         results = {}
 
         # Perform a split of the dataset outside the loop, to ensure only parameter changes are made
-        X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=i)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, p_test=1-p_train, seed=10)
 
         if scale:
             scaler_x, scaler_y = MinMaxScaler(), MinMaxScaler()
