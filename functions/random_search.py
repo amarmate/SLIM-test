@@ -18,7 +18,7 @@ import functools
 def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
                        iterations=50, pop_size=100, n_iter=100,
                        struct_mutation=False, show_progress=True, 
-                       x_o=False, gp_xo=False, save=True, identifier=None):
+                       x_o=False, mut_xo=False, save=True, identifier=None):
     
     """"
     Perform a random search for the best hyperparameters for the SLIM algorithm.
@@ -47,8 +47,8 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
         Whether to show the progress bar or not.
     x_o: bool
         Whether to use crossover or not.
-    gp_xo: bool
-        Whether to use crossover with GP or not.
+    mut_xo: bool
+        Whether to use mutation crossover or not.
     save: bool
         Whether to save the results or not.
     identifier: str
@@ -70,8 +70,8 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
     'p_prune': [0.1, 0.2, 0.3, 0.4, 0.5] if struct_mutation==True else [0,0],
     'p_xo': [0.1, 0.2, 0.3, 0.4, 0.5] if x_o==True else [0,0],
     'p_struct_xo': (
-        [0.25, 0.35, 0.5, 0.6, 0.7, 0.8] if x_o and gp_xo
-        else [1, 1] if not gp_xo and x_o
+        [0.25, 0.35, 0.5, 0.6, 0.7, 0.8] if x_o and mut_xo
+        else [1, 1] if not mut_xo and x_o
         else [0, 0] 
     ),
     'prob_replace': [0, 0.01, 0.015, 0.02] if struct_mutation==True else [0,0],
