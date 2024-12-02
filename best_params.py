@@ -1,4 +1,14 @@
-from concurrent.futures import ProcessPoolExecutor
+import os
+
+# Limit threads for NumPy and other multi-threaded libraries
+os.environ["OMP_NUM_THREADS"] = "1"  # Limit OpenMP threads to 1
+os.environ["MKL_NUM_THREADS"] = "1"  # Limit MKL threads to 1
+os.environ["NUMEXPR_NUM_THREADS"] = "1"  # Limit NumExpr threads to 1
+os.environ["OPENBLAS_NUM_THREADS"] = "1"  # Limit OpenBLAS threads to 1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # Limit macOS Accelerate threads to 1
+os.environ["BLIS_NUM_THREADS"] = "1"  # Limit BLIS threads to 1
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from functions.test_algorithms import *
 from functions.random_search import random_search_slim  # Assuming this is the non-parallel version
 from slim_gsgp_lib.datasets.data_loader import *
@@ -7,7 +17,7 @@ from tqdm import tqdm
 
 datasets = [globals()[i] for i in globals() if 'load' in i][2:]
 
-# Settings 
+# Settings
 pop_size = 100
 n_iter = 200
 n_iter_rs = 100
@@ -22,7 +32,7 @@ def process_dataset(args):
     results = random_search_slim(
         X, y, dataset_name, scale=scale,
         p_train=p_train, iterations=n_iter_rs, pop_size=pop_size, n_iter=n_iter,
-        struct_mutation=struct_mutation, show_progress=False,
+        struct_mutation=struct_mutation, show_progress=True,
         x_o=xo, save=False, mut_xo=mut_xo
     )
 
@@ -33,17 +43,23 @@ def process_dataset(args):
 
     if not os.path.exists('params'):
         os.makedirs('params')
-    
+
     with open(f'params/{dataset_name}_{scale_suffix}_{xo_suffix}_{gp_xo_suffix}_{struct_mutation_suffix}.pkl', 'wb') as f:
         pickle.dump(results, f)
 
-
 if __name__ == '__main__':
-    # Define tasks for both scaled and unscaled processing                          #Scale, strmt, x_o, mut_xo
-    tasks = [(loader, True, False, False, False) for loader in datasets] + [(loader, False, False, False, False) for loader in datasets]  # Scaled + unscaled
-    tasks += [(loader, True, True, False, False) for loader in datasets] + [(loader, True, False, True, False) for loader in datasets]    # Strmut + xo
-    tasks += [(loader, True, True, True, False) for loader in datasets] + [(loader, True, True, True, True) for loader in datasets]       # Strmut and xo + strmut and xo and mut_xo
+    # Define tasks for both scaled and unscaled processing
+    tasks = [(loader, True, False, False, False) for loader in datasets] + [(loader, False, False, False, False) for loader in datasets]
+    tasks += [(loader, True, True, False, False) for loader in datasets] + [(loader, True, False, True, False) for loader in datasets]
+    tasks += [(loader, True, True, True, False) for loader in datasets] + [(loader, True, True, True, True) for loader in datasets]
 
-    # Parallel processing for both scaled and unscaled datasets
-    with ProcessPoolExecutor() as executor:
-        list(tqdm(executor.map(process_dataset, tasks), total=len(tasks)))
+    # Limit max workers to balance CPU and memory usage
+    max_workers = 96 
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(process_dataset, task) for task in tasks]
+        for future in tqdm(as_completed(futures), total=len(tasks), desc="Processing tasks"):
+            try:
+                future.result()  # Raise any exceptions from the worker processes
+            except Exception as e:
+                print(f"Error in processing: {e}")
