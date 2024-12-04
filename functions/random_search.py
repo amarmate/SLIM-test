@@ -113,7 +113,7 @@ def random_search_slim(X,y,dataset, scale=False, p_train=0.7,
                             ms_lower=ms_lower, ms_upper=ms_upper, p_inflate=p_inflate, max_depth=max_depth, init_depth=init_depth, 
                             seed=20, prob_const=prob_const, n_elites=1, log_level=0, verbose=0,
                             struct_mutation=struct_mutation, prob_replace=prob_replace, p_prune=p_prune, 
-                            p_xo=p_xo, p_struct_xo=p_struct_xo, tournament_size=tournament_size, 
+                            p_xo=p_xo, p_struct_xo=p_struct_xo, tournament_size=tournament_size, n_jobs=1,
                             )
 
             predictions_slim = slim_.predict(X_test)

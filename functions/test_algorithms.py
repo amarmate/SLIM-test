@@ -75,18 +75,18 @@ def test_slim(X, y, args_dict=None,
 
     Returns
     -------
-    rmse_: list
+    rmse: list
         A list containing the RMSE scores.
-    mape_: list
+    mape: list
         A list containing the MAPE scores.
-    nrmse_: list
-        A list containing the NRMSE scores.
-    r2_: list   
-        A list containing the R-squared scores.
-    mae_: list  
+    mae: list
         A list containing the MAE scores.
-    std_rmse_: list 
-        A list containing the standardized RMSE scores.
+    rmse_compare: list
+        A list containing the RMSE scores.
+    mape_compare: list
+        A list containing the MAPE scores.
+    mae_compare: list
+        A list containing the MAE scores.
     time_stats: list
         A list containing the time taken to train the model.
     train_fit: list
@@ -95,6 +95,8 @@ def test_slim(X, y, args_dict=None,
         A list containing the test fitness scores.
     size: list
         A list containing the size of the trees.
+    representations: list
+        A list containing the tree representations.
     """
     
     rmse_, mae_, mape_, rmse_compare, mae_compare, mape_compare, time_stats, train_fit, test_fit, size, representations = [], [], [], [], [], [], [], [], [], [], []
